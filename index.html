@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f8fc" />
+    <meta
+      name="description"
+      content="Confronta prezzi e spedizioni dei marketplace con dati demo o raccolti localmente dal browser."
+    />
+    <title>MercatoChiaro — comparatore marketplace</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="MercatoChiaro home">
+        <span class="brand-mark">MC</span>
+        <span>Mercato<span class="brand-accent">Chiaro</span></span>
+      </a>
+      <div class="header-actions">
+        <span class="privacy-pill"><span class="status-dot"></span> Dati nel tuo browser</span>
+        <a class="text-link" href="#limiti">Come funziona</a>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Confronto trasparente, senza API a pagamento</p>
+          <h1>Il prezzo più basso è davvero il più conveniente?</h1>
+          <p class="hero-text">
+            Inserisci un prodotto e la tua destinazione in Italia. Partiamo da dati demo per mostrarti
+            subito il flusso e possiamo importare dati visibili dalle pagine aperte nel browser.
+          </p>
+          <div class="trust-row">
+            <span>✓ Nessun account richiesto</span>
+            <span>✓ Nessun dato inviato a un server</span>
+            <span>✓ Niente bypass o scraping aggressivo</span>
+          </div>
+        </div>
+        <div class="hero-note">
+          <span class="note-icon">✦</span>
+          <div>
+            <strong>Stima finale, non promessa</strong>
+            <p>IVA, dazi, coupon e disponibilità possono cambiare al checkout.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="search-card" aria-labelledby="search-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">01 / Dati di partenza</p>
+            <h2 id="search-title">Cosa vuoi confrontare?</h2>
+          </div>
+          <button id="demoButton" class="button button-ghost" type="button">Usa un esempio</button>
+        </div>
+        <form id="compareForm" novalidate>
+          <label class="field field-url">
+            <span>URL del prodotto</span>
+            <input
+              id="productUrl"
+              name="productUrl"
+              type="url"
+              placeholder="https://www.aliexpress.com/item/..."
+              autocomplete="url"
+              required
+            />
+            <small>Un link pubblico di AliExpress, SHEIN, Alibaba o Temu</small>
+          </label>
+          <label class="field field-country">
+            <span>Paese di consegna</span>
+            <select id="country" name="country">
+              <option value="IT">Italia</option>
+            </select>
+          </label>
+          <label class="field field-cap">
+            <span>CAP</span>
+            <input
+              id="postalCode"
+              name="postalCode"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]{5}"
+              maxlength="5"
+              placeholder="00100"
+              required
+            />
+          </label>
+          <button class="button button-primary" type="submit">
+            <span>Confronta ora</span><span aria-hidden="true">→</span>
+          </button>
+        </form>
+        <div id="formMessage" class="form-message" role="status" aria-live="polite"></div>
+      </section>
+
+      <section id="results" class="results-section" aria-labelledby="results-title">
+        <div class="results-heading">
+          <div>
+            <p class="eyebrow">02 / Risultati</p>
+            <h2 id="results-title">Quattro vetrine, una stima leggibile</h2>
+          </div>
+          <div class="results-meta">
+            <span id="lastUpdated">Demo pronta</span>
+            <button id="refreshButton" class="icon-button" type="button" title="Aggiorna confronto" aria-label="Aggiorna confronto">↻</button>
+          </div>
+        </div>
+        <div id="resultsGrid" class="results-grid"></div>
+        <div class="results-disclaimer">
+          <span class="info-icon">i</span>
+          <p>
+            I totali includono il trasporto quando disponibile. “Stimato” significa che il valore è
+            indicativo; “Non disponibile” richiede di verificare il checkout sul marketplace.
+          </p>
+        </div>
+      </section>
+
+      <section class="connector-card" aria-labelledby="connector-title">
+        <div class="connector-copy">
+          <p class="eyebrow">03 / Connettore locale</p>
+          <h2 id="connector-title">Hai già aperto le pagine nel browser?</h2>
+          <p>
+            L’estensione opzionale legge solo informazioni già visibili o presenti nei dati strutturati
+            della pagina. Cattura manualmente una scheda prodotto, poi importala qui senza API esterne.
+          </p>
+          <div class="connector-actions">
+            <button id="importButton" class="button button-dark" type="button">Importa catture locali</button>
+            <button id="clearButton" class="button button-ghost" type="button">Svuota catture</button>
+          </div>
+          <div id="captureMessage" class="form-message" role="status" aria-live="polite"></div>
+        </div>
+        <div class="connector-steps">
+          <div class="connector-step"><span>1</span><p>Apri una scheda marketplace e usa il pulsante dell’estensione.</p></div>
+          <div class="connector-step"><span>2</span><p>Ripeti sui marketplace che vuoi confrontare.</p></div>
+          <div class="connector-step"><span>3</span><p>Importa: i dati restano nel browser e sostituiscono il demo.</p></div>
+        </div>
+      </section>
+
+      <section id="limiti" class="limits-section">
+        <div>
+          <p class="eyebrow">Trasparenza prima di tutto</p>
+          <h2>Il browser non è un’API magica.</h2>
+        </div>
+        <div class="limits-grid">
+          <article><span class="limit-number">01</span><h3>Prezzi dinamici</h3><p>Se il sito carica il prezzo solo dopo login, località o interazioni, mostriamo “non disponibile”.</p></article>
+          <article><span class="limit-number">02</span><h3>Spedizione al checkout</h3><p>Coupon, IVA, dazi e costi dell’ultimo miglio possono cambiare il totale reale.</p></article>
+          <article><span class="limit-number">03</span><h3>Rispetto delle regole</h3><p>Non eludiamo CAPTCHA, anti-bot, paywall o termini d’uso. Nessun polling automatico.</p></article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>MercatoChiaro · progetto statico e locale</span>
+      <span>Verifica sempre il prezzo finale sul sito del venditore.</span>
+    </footer>
+    <script src="app.js"></script>
+  </body>
+</html>

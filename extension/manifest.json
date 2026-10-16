@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "MercatoChiaro Connector",
+  "version": "0.1.0",
+  "description": "Cattura manualmente dati già visibili nelle pagine dei marketplace per importarli nel comparatore.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://*.aliexpress.com/*",
+    "https://*.shein.com/*",
+    "https://*.alibaba.com/*",
+    "https://*.temu.com/*",
+    "https://*.github.io/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.aliexpress.com/*",
+        "https://*.shein.com/*",
+        "https://*.alibaba.com/*",
+        "https://*.temu.com/*",
+        "https://*.github.io/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "MercatoChiaro: cattura pagina"
+  }
+}
