@@ -140,7 +140,7 @@ export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(env) });
     const url = new URL(request.url);
-    if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, service: "markettochiaro-worker" }, 200, env);
+    if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, service: "mercatochiaro-worker" }, 200, env);
     if (url.pathname === "/api/compare" && request.method === "POST") return compare(request, env);
     return json({ error: "Not found" }, 404, env);
   }
