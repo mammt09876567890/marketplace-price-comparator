@@ -8,6 +8,7 @@ Comparatore statico e locale per prezzi e spedizioni di **AliExpress, SHEIN, Ali
 
 - **Frontend:** `index.html`, `styles.css`, `app.js`, pubblicati su GitHub Pages.
 - **Backend:** Cloudflare Worker in `worker/src/index.js`; le chiavi restano nei secret del Worker.
+- **Privacy:** Cloudflare Access protegge l’API con JWT e allowlist email server-side; senza configurazione Access l’API risponde 503.
 - **RapidAPI SHEIN:** adapter configurabile con endpoint e host scelti dal tuo account RapidAPI.
 - **Apify Temu:** adapter configurabile con actor ID e input JSON dell’actor scelto.
 - **AliExpress/Alibaba:** adapter volutamente disabilitati; usa l’estensione manuale finché non viene aggiunto un endpoint verificato.
@@ -104,6 +105,27 @@ Il Worker espone:
 
 Configura quindi `api-config.js` con l’URL `workers.dev`, fai commit del solo URL pubblico e pubblica di nuovo Pages.
 
+## Rendere la ricerca privata (obbligatorio per uso personale)
+
+Il sito GitHub Pages può restare pubblicamente visibile, ma il confronto e l’health check sono bloccati dal Worker finché non presentano un JWT Cloudflare Access valido. Il frontend non contiene password né chiavi. **La privacy non è attiva solo perché hai aggiunto il codice: devi completare la configurazione Zero Trust seguente.**
+
+1. In **Zero Trust → Access → Applications** crea una applicazione **Self-hosted** sul dominio `*.workers.dev` esatto del Worker (per esempio `mercatochiaro-api.tuo-account.workers.dev`).
+2. Crea una policy **Allow** con il tuo provider di identità e un solo selector email: il tuo indirizzo personale.
+3. Copia l’**Application audience (AUD)** dell’applicazione.
+4. Nel Worker configura:
+
+```toml
+CF_ACCESS_TEAM_DOMAIN = "https://nome-team.cloudflareaccess.com"
+CF_ACCESS_AUDIENCE = "aud-copiato-da-access"
+ALLOWED_EMAILS = "tuo.nome@example.com"
+ALLOWED_ORIGIN = "https://tuo-account.github.io"
+```
+
+5. Esegui `wrangler deploy`, imposta `api-config.js` con l’URL Worker e attendi il deploy Pages.
+6. Verifica tre casi: non autenticato = 401, email diversa = 403, tua email = richiesta accettata. Se Access non è configurato, il Worker risponde 503 e la UI dichiara che la privacy non è attiva.
+
+La protezione deve essere applicata al dominio Worker, non soltanto alla pagina GitHub Pages. Cloudflare Access crea il cookie `CF_Authorization`; il frontend lo invia con `credentials: include`. Non usare password condivise, gate client-side o token inseriti nell’HTML.
+
 ## Account gratuiti e limiti provider
 
 **RapidAPI:** crea un account, scegli un’API SHEIN con piano free attivo e copia endpoint/host dalla pagina dell’API. Il piano gratuito può avere richieste giornaliere o mensili limitate e può richiedere carta o verifica: non dipende dal codice. Quando la quota termina, la UI mostra l’errore HTTP del provider.
@@ -144,6 +166,10 @@ La cattura è manuale e limitata a JSON-LD/selettori presenti nella pagina. I da
 ## Troubleshooting
 
 **“Backend non configurato”.** Imposta `apiBaseUrl` in `api-config.js` con il Worker pubblico.
+
+**“Privacy non attiva”.** Configura `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUDIENCE`, `ALLOWED_EMAILS` e `ALLOWED_ORIGIN`, poi esegui `wrangler deploy`. Fino a quel momento il proprietario non deve considerare il confronto privato.
+
+**401/403 da Cloudflare Access.** 401 significa sessione JWT mancante/scaduta; 403 significa account non presente nella allowlist o audience/issuer errati. Accedi dall’application Access e controlla email, AUD e team domain.
 
 **“Adapter disabilitato”.** Mancano variabili Worker. Controlla `wrangler.toml`, poi esegui `wrangler secret put` per i token.
 

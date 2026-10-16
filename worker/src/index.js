@@ -5,10 +5,13 @@ const MARKETPLACES = {
   alibaba: { name: "Alibaba", short: "AB", logoClass: "alibaba" }
 };
 
+let jwksCache = { expiresAt: 0, keys: null };
+
 const corsHeaders = (env) => ({
-  "access-control-allow-origin": env.ALLOWED_ORIGIN || "*",
+  ...(env.ALLOWED_ORIGIN ? { "access-control-allow-origin": env.ALLOWED_ORIGIN } : { "access-control-allow-origin": "*" }),
   "access-control-allow-methods": "POST, OPTIONS",
-  "access-control-allow-headers": "content-type",
+  "access-control-allow-headers": "content-type, authorization",
+  ...(env.ALLOWED_ORIGIN ? { "access-control-allow-credentials": "true" } : {}),
   "access-control-max-age": "86400"
 });
 
@@ -16,6 +19,75 @@ const json = (data, status, env) => new Response(JSON.stringify(data), {
   status,
   headers: { ...corsHeaders(env), "content-type": "application/json; charset=utf-8" }
 });
+
+function base64UrlDecode(value) {
+  const padded = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(padded);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function decodeJson(value) {
+  return JSON.parse(new TextDecoder().decode(base64UrlDecode(value)));
+}
+
+function configuredEmails(env) {
+  return new Set((env.ALLOWED_EMAILS || "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean));
+}
+
+function accessConfiguration(env) {
+  const teamDomain = (env.CF_ACCESS_TEAM_DOMAIN || "").replace(/\/$/, "");
+  const audience = (env.CF_ACCESS_AUDIENCE || "").trim();
+  const emails = configuredEmails(env);
+  if (!teamDomain || !audience || !emails.size) return null;
+  return { teamDomain, audience, emails };
+}
+
+async function accessKeys(teamDomain) {
+  if (jwksCache.keys && jwksCache.expiresAt > Date.now()) return jwksCache.keys;
+  const response = await fetch(`${teamDomain}/cdn-cgi/access/certs`, { headers: { accept: "application/json" } });
+  if (!response.ok) throw new Error("Cloudflare Access JWKS non raggiungibile.");
+  const body = await response.json();
+  jwksCache = { keys: body.keys || [], expiresAt: Date.now() + 5 * 60 * 1000 };
+  return jwksCache.keys;
+}
+
+async function validateAccess(request, env) {
+  const configuration = accessConfiguration(env);
+  if (!configuration) return { status: 503, message: "Privacy non attiva: configura CF_ACCESS_TEAM_DOMAIN, CF_ACCESS_AUDIENCE e ALLOWED_EMAILS nel Worker." };
+  const authorization = request.headers.get("authorization");
+  const cookie = request.headers.get("cookie")?.match(/(?:^|;\s*)CF_Authorization=([^;]+)/)?.[1];
+  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1] || cookie;
+  if (!token) return { status: 401, message: "Accesso richiesto: autenticati con Cloudflare Access." };
+  const parts = token.split(".");
+  if (parts.length !== 3) return { status: 401, message: "JWT Cloudflare Access non valido." };
+  try {
+    const header = decodeJson(parts[0]);
+    const claims = decodeJson(parts[1]);
+    if (header.alg !== "RS256" || !header.kid || claims.iss !== configuration.teamDomain) {
+      return { status: 403, message: "JWT Cloudflare Access non autorizzato." };
+    }
+    const now = Math.floor(Date.now() / 1000);
+    if (!claims.exp || claims.exp <= now || (claims.nbf && claims.nbf > now)) {
+      return { status: 401, message: "JWT Cloudflare Access scaduto o non ancora valido." };
+    }
+    const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    if (!audiences.includes(configuration.audience) || !configuration.emails.has(String(claims.email || "").toLowerCase())) {
+      return { status: 403, message: "Il tuo account non è nella allowlist privata." };
+    }
+    const keyData = (await accessKeys(configuration.teamDomain)).find((key) => key.kid === header.kid);
+    if (!keyData) return { status: 401, message: "Chiave JWT Cloudflare Access non riconosciuta." };
+    const publicKey = await crypto.subtle.importKey("jwk", keyData, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
+    const valid = await crypto.subtle.verify(
+      { name: "RSASSA-PKCS1-v1_5" },
+      publicKey,
+      base64UrlDecode(parts[2]),
+      new TextEncoder().encode(`${parts[0]}.${parts[1]}`)
+    );
+    return valid ? { status: 200, email: claims.email } : { status: 401, message: "Firma JWT Cloudflare Access non valida." };
+  } catch {
+    return { status: 401, message: "JWT Cloudflare Access non verificabile." };
+  }
+}
 
 function marketplaceFromUrl(value) {
   let hostname;
@@ -140,8 +212,15 @@ export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(env) });
     const url = new URL(request.url);
-    if (url.pathname === "/api/health" && request.method === "GET") return json({ ok: true, service: "mercatochiaro-worker" }, 200, env);
-    if (url.pathname === "/api/compare" && request.method === "POST") return compare(request, env);
+    if (url.pathname === "/api/health" && request.method === "GET") {
+      const access = await validateAccess(request, env);
+      return access.status === 200 ? json({ ok: true, service: "mercatochiaro-worker" }, 200, env) : json({ error: access.message }, access.status, env);
+    }
+    if (url.pathname === "/api/compare" && request.method === "POST") {
+      const access = await validateAccess(request, env);
+      if (access.status !== 200) return json({ error: access.message, code: access.status === 503 ? "ACCESS_NOT_CONFIGURED" : "ACCESS_DENIED" }, access.status, env);
+      return compare(request, env);
+    }
     return json({ error: "Not found" }, 404, env);
   }
 };

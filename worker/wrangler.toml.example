@@ -7,6 +7,11 @@ compatibility_date = "2026-10-16"
 # ALLOWED_ORIGIN = "https://tuo-account.github.io"
 # Lascia vuoto durante i test locali o usa http://localhost:8000.
 ALLOWED_ORIGIN = "https://tuo-account.github.io"
+# Cloudflare Access: dominio team, audience tag dell'Access application,
+# e lista email autorizzate separata da virgole.
+CF_ACCESS_TEAM_DOMAIN = "https://tuo-team.cloudflareaccess.com"
+CF_ACCESS_AUDIENCE = "inserisci-audience-tag"
+ALLOWED_EMAILS = "tuo.nome@example.com"
 
 # Endpoint e host RapidAPI sono configurabili perché gli API provider possono
 # cambiare catalogo/endpoint. Non mettere mai la chiave in questo file.

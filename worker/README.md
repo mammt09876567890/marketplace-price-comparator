@@ -7,6 +7,40 @@ Il Worker espone:
 
 Le chiavi dei provider restano nei secret Cloudflare. Il browser conosce solo l’URL pubblico del Worker.
 
+## Protezione privata con Cloudflare Access
+
+Il Worker rifiuta ogni richiesta a `/api/compare` e `/api/health` se non presenta un JWT Cloudflare Access valido. Inoltre controlla firma RS256, issuer, audience, scadenza e `email` contro `ALLOWED_EMAILS`. Se le variabili Access non sono configurate, il Worker risponde **503**: non è considerato privato finché non completi questa procedura.
+
+### Configurazione una tantum Zero Trust
+
+1. Nel dashboard Cloudflare apri **Zero Trust → Settings → Custom Pages** e verifica il team domain. Il valore da usare è, ad esempio, `https://nome-team.cloudflareaccess.com`.
+2. Vai in **Zero Trust → Access → Applications → Add an application → Self-hosted**.
+3. Inserisci come hostname il dominio pubblico del Worker, ad esempio `mercatochiaro-api.tuo-account.workers.dev`. Non proteggere solo GitHub Pages: l’API deve essere protetta direttamente.
+4. Crea una policy **Allow** con il tuo identity provider (Google/GitHub/One-time PIN). Nel campo **Selector** aggiungi solo il tuo indirizzo email. Non usare una password condivisa.
+5. Salva l’application e copia il suo **Application audience (AUD)** dalla sezione Access. È il valore per `CF_ACCESS_AUDIENCE`.
+6. Imposta le variabili nel Worker:
+
+```bash
+wrangler secret put RAPIDAPI_KEY
+wrangler secret put APIFY_TOKEN
+```
+
+Le tre variabili Access non sono segreti e vanno in `wrangler.toml` o nel pannello Variables:
+
+```toml
+CF_ACCESS_TEAM_DOMAIN = "https://nome-team.cloudflareaccess.com"
+CF_ACCESS_AUDIENCE = "il-tuo-application-audience"
+ALLOWED_EMAILS = "tuo.nome@example.com"
+ALLOWED_ORIGIN = "https://tuo-account.github.io"
+```
+
+`ALLOWED_EMAILS` può contenere più indirizzi separati da virgola, ma per il requisito “solo il proprietario” inserisci una sola email. Dopo la modifica esegui `wrangler deploy`.
+
+7. Imposta `api-config.js` con il solo URL pubblico del Worker e pubblica il frontend.
+8. Testa in una finestra anonima: senza login il confronto deve rispondere 401/redirect Access; con un account non allowlisted deve rispondere 403; con la tua email deve passare la validazione JWT.
+
+Il frontend usa `credentials: "include"` per inviare il cookie `CF_Authorization` al Worker. Per questo `ALLOWED_ORIGIN` deve essere l’origine esatta di GitHub Pages, senza slash finale, e il Worker deve avere CORS con credenziali. Non copiare JWT o cookie nel codice.
+
 ## Setup rapido
 
 ```bash

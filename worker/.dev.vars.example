@@ -1,4 +1,7 @@
 ALLOWED_ORIGIN=http://localhost:8000
+CF_ACCESS_TEAM_DOMAIN=https://tuo-team.cloudflareaccess.com
+CF_ACCESS_AUDIENCE=inserisci-audience-tag
+ALLOWED_EMAILS=tuo.nome@example.com
 RAPIDAPI_SHEIN_URL=
 RAPIDAPI_HOST=
 RAPIDAPI_KEY=

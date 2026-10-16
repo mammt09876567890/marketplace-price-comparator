@@ -137,9 +137,13 @@ async function compare() {
     const response = await fetch(apiUrl("/api/compare"), {
       method: "POST",
       headers: { "content-type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ url, country, postalCode })
     });
-    const payload = await response.json();
+    const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) throw new Error("Accesso richiesto: apri il sito protetto da Cloudflare Access e autenticati.");
+    if (response.status === 403) throw new Error("Accesso negato: il tuo account non è nella allowlist privata.");
+    if (response.status === 503) throw new Error("Privacy non attiva: il proprietario deve configurare Cloudflare Access e la allowlist.");
     if (!response.ok) throw new Error(payload.error || "Il backend ha rifiutato la richiesta.");
     renderResults(normalizeApiResults(payload));
     elements.lastUpdated.textContent = `Risposta backend · CAP ${postalCode}`;
