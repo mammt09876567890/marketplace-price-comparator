@@ -29,12 +29,13 @@
           <p class="eyebrow">Confronto trasparente, senza API a pagamento</p>
           <h1>Il prezzo più basso è davvero il più conveniente?</h1>
           <p class="hero-text">
-            Inserisci un prodotto e la tua destinazione in Italia. Partiamo da dati demo per mostrarti
-            subito il flusso e possiamo importare dati visibili dalle pagine aperte nel browser.
+            Inserisci un prodotto e la tua destinazione in Italia. Se configuri il backend gratuito,
+            interroghiamo i provider dal server senza esporre chiavi nel browser; altrimenti puoi usare
+            l’estensione locale come fallback.
           </p>
           <div class="trust-row">
             <span>✓ Nessun account richiesto</span>
-            <span>✓ Nessun dato inviato a un server</span>
+            <span>✓ Chiavi solo sul backend</span>
             <span>✓ Niente bypass o scraping aggressivo</span>
           </div>
         </div>
@@ -98,7 +99,7 @@
         <div class="results-heading">
           <div>
             <p class="eyebrow">02 / Risultati</p>
-            <h2 id="results-title">Quattro vetrine, una stima leggibile</h2>
+            <h2 id="results-title">Risultati reali, quando disponibili</h2>
           </div>
           <div class="results-meta">
             <span id="lastUpdated">Demo pronta</span>
@@ -109,8 +110,8 @@
         <div class="results-disclaimer">
           <span class="info-icon">i</span>
           <p>
-            I totali includono il trasporto quando disponibile. “Stimato” significa che il valore è
-            indicativo; “Non disponibile” richiede di verificare il checkout sul marketplace.
+            I risultati arrivano dal backend/provider configurato oppure dalla cattura manuale del browser.
+            Nessun valore viene inventato: “Non disponibile” significa che il provider non ha restituito un dato verificabile.
           </p>
         </div>
       </section>
@@ -153,6 +154,7 @@
       <span>MercatoChiaro · progetto statico e locale</span>
       <span>Verifica sempre il prezzo finale sul sito del venditore.</span>
     </footer>
+    <script src="api-config.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

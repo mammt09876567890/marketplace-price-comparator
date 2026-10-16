@@ -1,94 +1,175 @@
 # MercatoChiaro
 
-Comparatore statico e locale per prezzi e spedizioni di **AliExpress, SHEIN, Alibaba e Temu**, pensato per una destinazione in Italia. Il progetto parte senza API a pagamento: l’interfaccia funziona subito con dati demo e può importare, tramite un’estensione Chrome opzionale, informazioni già visibili nelle pagine aperte nel browser.
+Comparatore statico e locale per prezzi e spedizioni di **AliExpress, SHEIN, Alibaba e Temu**, con un backend opzionale serverless. Il frontend GitHub Pages non contiene chiavi: invia URL, paese e CAP al Cloudflare Worker configurato. Se il backend o un provider non sono disponibili, l’interfaccia mostra uno stato esplicito e non inventa prezzi. L’estensione Chrome resta il fallback per catture manuali.
 
-> **Trasparenza:** questo progetto non promette un prezzo reale o completo. Il totale al checkout resta la fonte di verità. Non elude CAPTCHA, sistemi anti-bot, login, paywall o termini d’uso dei marketplace.
+> **Trasparenza:** il prezzo finale al checkout è sempre la fonte di verità. Il progetto non elude CAPTCHA, sistemi anti-bot, login, paywall o termini d’uso dei marketplace.
 
-## Funzionalità
+## Architettura
 
-- Frontend vanilla HTML/CSS/JavaScript, senza build e senza dipendenze.
-- Input per URL prodotto, paese e CAP italiano.
-- Quattro schede di confronto con prezzo prodotto, spedizione, consegna e stato del dato.
-- Dati demo inclusi per provare l’esperienza immediatamente.
-- Connettore Chrome Manifest V3 opzionale per una cattura **manuale** della pagina corrente.
-- Dati del connettore salvati in `chrome.storage.local`; nessun backend e nessuna chiave segreta.
-- Workflow GitHub Actions per pubblicare il sito su GitHub Pages.
+- **Frontend:** `index.html`, `styles.css`, `app.js`, pubblicati su GitHub Pages.
+- **Backend:** Cloudflare Worker in `worker/src/index.js`; le chiavi restano nei secret del Worker.
+- **RapidAPI SHEIN:** adapter configurabile con endpoint e host scelti dal tuo account RapidAPI.
+- **Apify Temu:** adapter configurabile con actor ID e input JSON dell’actor scelto.
+- **AliExpress/Alibaba:** adapter volutamente disabilitati; usa l’estensione manuale finché non viene aggiunto un endpoint verificato.
+- **Estensione:** `extension/`, Manifest V3, cattura manuale di dati già visibili/JSON-LD.
 
-## Avvio locale
+Il Worker normalizza solo campi prezzo riconoscibili. Una risposta provider senza prezzo verificabile diventa **Non disponibile**, non un valore demo.
+Con un solo URL il Worker interroga il provider relativo a quel marketplace; le altre schede restano non disponibili. Per confrontare più vetrine servono URL separati e più richieste, oppure catture manuali dall’estensione.
 
-È sufficiente servire la cartella con un server statico. Ad esempio, con Python:
+## Avvio frontend locale
 
 ```bash
 python -m http.server 8000
 ```
 
-Apri <http://localhost:8000>. È preferibile un server rispetto a `file://` perché i browser applicano restrizioni diverse ai file locali.
+Apri <http://localhost:8000>. `api-config.js` è intenzionalmente vuoto nel repository:
 
-## Pubblicazione su GitHub Pages
+```js
+window.MPC_CONFIG = { apiBaseUrl: "" };
+```
 
-1. Crea o usa un repository GitHub e porta il contenuto sul branch `main`.
-2. In **Settings → Pages**, seleziona **GitHub Actions** come source.
-3. Il workflow `.github/workflows/pages.yml` pubblica la root del repository a ogni push su `main`.
-4. Attendi il completamento dell’azione e apri l’URL indicato nell’environment `github-pages`.
+Per collegare un Worker locale o remoto, inserisci solo il suo URL pubblico, mai una chiave:
 
-Il workflow non usa segreti applicativi. Il token `GITHUB_TOKEN` è quello temporaneo gestito da GitHub Actions.
+```js
+window.MPC_CONFIG = {
+  apiBaseUrl: "https://mercatochiaro-api.<account>.workers.dev"
+};
+```
 
-## Caricamento dell’estensione Chrome
+La demo si attiva soltanto con **Usa un esempio**. In assenza di backend il pulsante **Confronta ora** non mostra risultati fittizi.
+
+## Backend Cloudflare Worker
+
+Cloudflare Workers ha un piano gratuito con limiti che possono cambiare: controlla sempre la pagina prezzi e i limiti del tuo account. Il progetto non richiede un database.
+
+### 1. Account e CLI
+
+1. Crea un account Cloudflare gratuito.
+2. Installa Node.js LTS e Wrangler:
+
+```bash
+npm install -g wrangler
+wrangler login
+```
+
+3. Entra nella cartella:
+
+```bash
+cd worker
+copy wrangler.toml.example wrangler.toml
+```
+
+Su macOS/Linux usa `cp wrangler.toml.example wrangler.toml`.
+
+### 2. Configura gli adapter
+
+Modifica `worker/wrangler.toml`:
+
+- `ALLOWED_ORIGIN`: l’origine GitHub Pages, per esempio `https://tuo-account.github.io`. Per test locali usa `http://localhost:8000`.
+- `RAPIDAPI_SHEIN_URL`: endpoint esatto dell’API SHEIN scelto nel catalogo RapidAPI.
+- `RAPIDAPI_HOST`: valore `X-RapidAPI-Host` indicato da RapidAPI.
+- `APIFY_TEMU_ACTOR_ID`: ID dell’actor Temu che hai scelto.
+- `APIFY_TEMU_INPUT_JSON`: input JSON base richiesto da quell’actor.
+
+Gli endpoint RapidAPI e gli actor Apify non hanno tutti lo stesso schema. Per questo sono configurabili e il normalizzatore accetta soltanto `price`, `product.price`, `offers.price`, `data.price` o `result.price`. Se l’actor usa un altro schema, va aggiornato l’adapter dopo aver verificato la documentazione dell’actor; non va simulato il risultato.
+
+### 3. Crea i secret
+
+```bash
+wrangler secret put RAPIDAPI_KEY
+wrangler secret put APIFY_TOKEN
+```
+
+Incolla i valori solo nel prompt di Wrangler. Non inserirli in `wrangler.toml`, `.dev.vars`, `api-config.js`, HTML o issue/commit.
+
+Per test locali:
+
+```bash
+copy .dev.vars.example .dev.vars
+wrangler dev
+```
+
+`.dev.vars` è ignorato da Git tramite le regole locali del progetto? Se il repository non contiene ancora un `.gitignore`, non committarlo comunque e aggiungi una regola locale prima di lavorare in team.
+
+### 4. Deploy
+
+```bash
+wrangler deploy
+```
+
+Il Worker espone:
+
+- `GET /api/health`
+- `POST /api/compare` con `{ "url": "...", "country": "IT", "postalCode": "00100" }`
+
+Configura quindi `api-config.js` con l’URL `workers.dev`, fai commit del solo URL pubblico e pubblica di nuovo Pages.
+
+## Account gratuiti e limiti provider
+
+**RapidAPI:** crea un account, scegli un’API SHEIN con piano free attivo e copia endpoint/host dalla pagina dell’API. Il piano gratuito può avere richieste giornaliere o mensili limitate e può richiedere carta o verifica: non dipende dal codice. Quando la quota termina, la UI mostra l’errore HTTP del provider.
+
+**Apify:** crea un account gratuito, scegli un actor Temu che dichiari chiaramente input, output e condizioni d’uso, poi copia actor ID e token. Gli actor consumano compute units e possono avere limiti del piano free. L’endpoint sincrono può scadere o rispondere con errore; in quel caso nessun prezzo viene inventato.
+
+**Marketplace:** prezzi, disponibilità, IVA, coupon, dazi e spedizione possono dipendere da account, cookie, variante e destinazione. Verifica sempre il checkout. Non aumentare frequenza, non aggirare protezioni e non usare actor/provider contro i loro termini.
+
+## Deploy GitHub Pages
+
+1. In **Settings → Pages**, seleziona **GitHub Actions**.
+2. Il workflow `.github/workflows/pages.yml` pubblica la root a ogni push su `main`.
+3. Imposta `api-config.js` con il solo URL pubblico del Worker.
+4. Verifica l’URL mostrato nell’environment `github-pages`.
+
+Il workflow usa solo `GITHUB_TOKEN` temporaneo e non contiene segreti provider.
+
+## Estensione browser fallback
 
 1. Apri `chrome://extensions`.
 2. Attiva **Modalità sviluppatore**.
-3. Seleziona **Carica estensione non pacchettizzata**.
-4. Scegli la cartella `extension/`.
-5. Apri una pagina prodotto supportata su AliExpress, SHEIN, Alibaba o Temu.
-6. Premi **Cattura per MercatoChiaro** nel pulsante visualizzato in basso a destra.
-7. Torna al sito del comparatore e premi **Importa catture locali**.
+3. Seleziona **Carica estensione non pacchettizzata** e scegli `extension/`.
+4. Apri una pagina prodotto supportata.
+5. Premi **Cattura per MercatoChiaro**, poi nel sito premi **Importa catture locali**.
 
-L’estensione dichiara permessi limitati ai quattro marketplace e alle origini GitHub Pages/localhost per il ponte locale. Non effettua navigazione automatica, richieste in background, login, click su CAPTCHA o tentativi di aggirare protezioni. Legge solo JSON-LD e selettori di testo presenti nella pagina; un sito può quindi restituire dati incompleti o nessun dato.
+La cattura è manuale e limitata a JSON-LD/selettori presenti nella pagina. I dati restano in `chrome.storage.local`; non vengono fatte richieste automatiche, login o azioni su CAPTCHA. AliExpress e Alibaba sono utilizzabili principalmente con questo fallback in questa versione.
 
-## Utilizzo
+## Privacy e sicurezza
 
-1. Inserisci un URL pubblico e un CAP italiano di cinque cifre.
-2. Premi **Confronta ora**. Un URL riconosciuto cambia solo il messaggio informativo: senza cattura locale le schede rimangono demo/stimate.
-3. Usa **Usa un esempio** per vedere il flusso senza navigare su un marketplace.
-4. Con l’estensione, importa le catture e controlla l’etichetta **Letto dalla pagina**.
-5. Apri sempre il marketplace e verifica prezzo, valuta, disponibilità, IVA, dazi, coupon e spedizione al checkout.
-
-## Limiti tecnici e dati mancanti
-
-- I prezzi possono essere regionali, dinamici, personalizzati o visibili solo dopo interazioni.
-- Il CAP non viene inviato automaticamente ai marketplace: serve a documentare la destinazione del confronto, non calcola da solo la spedizione.
-- Alibaba spesso richiede una quotazione o una trattativa: il risultato può essere “Non disponibile”.
-- La spedizione gratuita mostrata da una pagina non garantisce tempi o condizioni.
-- Se il marketplace cambia HTML, selettori o dati strutturati, l’adapter può smettere di leggere il valore.
-- Nessun confronto viene eseguito lato server e non esiste sincronizzazione tra dispositivi.
-
-## Privacy
-
-Il frontend non invia il CAP o l’URL a un server controllato dal progetto. Le catture dell’estensione sono memorizzate nell’area locale dell’estensione (`chrome.storage.local`). Il browser e il marketplace visitato possono applicare le proprie politiche di rete, cookie e privacy: consultale separatamente. Usa **Svuota catture** o rimuovi l’estensione per cancellare i dati locali.
+- Le chiavi RapidAPI/Apify non arrivano mai al browser.
+- Il frontend invia al Worker URL, paese e CAP; il Worker li inoltra al provider configurato.
+- Il Worker non salva richieste o risultati in un database.
+- `api-config.js` contiene solo un URL pubblico.
+- Le catture dell’estensione restano nella memoria locale del browser.
+- Limita `ALLOWED_ORIGIN` all’origine Pages reale in produzione.
+- Non mettere token, cookie, URL firmati o dati personali in commit, log o screenshot.
 
 ## Troubleshooting
 
-**Vedo solo dati demo.** È il comportamento normale finché non catturi una pagina supportata e premi **Importa catture locali**.
+**“Backend non configurato”.** Imposta `apiBaseUrl` in `api-config.js` con il Worker pubblico.
 
-**Il pulsante dell’estensione non appare.** Controlla che l’estensione sia caricata, che l’URL sia uno dei quattro marketplace e che la pagina sia stata ricaricata dopo l’installazione. Alcune pagine possono impedire l’iniezione dei content script.
+**“Adapter disabilitato”.** Mancano variabili Worker. Controlla `wrangler.toml`, poi esegui `wrangler secret put` per i token.
 
-**Il prezzo è vuoto o sbagliato.** Il connettore non interpreta varianti, coupon o contenuti protetti. Verifica il valore visibile e il checkout; non cercare di bypassare la protezione.
+**HTTP 401/403/429 dal provider.** Token, endpoint, piano o quota sono errati/esauriti. Controlla il pannello del provider; non inserire il token nel frontend.
 
-**GitHub Pages mostra una pagina vuota.** Controlla il log di `.github/workflows/pages.yml`, che Pages usi **GitHub Actions**, e che `index.html` sia nella root pubblicata.
+**Risposta 200 ma prezzo non disponibile.** Lo schema dell’endpoint/actor non espone uno dei campi riconosciuti. Verifica la risposta del provider e aggiorna l’adapter in modo documentato.
+
+**Il pulsante estensione non appare.** Ricarica l’estensione e la pagina; alcuni contenuti o policy del marketplace possono impedire l’iniezione.
+
+**Pages non aggiorna.** Controlla il workflow `Deploy static site to GitHub Pages` e che Pages usi GitHub Actions.
 
 ## Struttura
 
 ```text
 .
 ├── index.html
+├── api-config.js
 ├── styles.css
 ├── app.js
 ├── extension/
 │   ├── manifest.json
 │   └── content.js
+├── worker/
+│   ├── src/index.js
+│   ├── wrangler.toml.example
+│   ├── .dev.vars.example
+│   └── README.md
 └── .github/workflows/pages.yml
 ```
-
-## Licenza e contributi
-
-Il repository è una base iniziale. Prima di aggiungere adapter o automazioni, verifica sempre i termini del sito interessato, minimizza i permessi e mantieni esplicita l’incertezza del dato. Non aggiungere chiavi API, cookie, credenziali o dati personali al repository.

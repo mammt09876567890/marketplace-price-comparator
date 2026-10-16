@@ -1,0 +1,23 @@
+name = "mercatochiaro-api"
+main = "src/index.js"
+compatibility_date = "2026-10-16"
+
+[vars]
+# Inserisci l'origine GitHub Pages, per esempio:
+# ALLOWED_ORIGIN = "https://tuo-account.github.io"
+# Lascia vuoto durante i test locali o usa http://localhost:8000.
+ALLOWED_ORIGIN = "https://tuo-account.github.io"
+
+# Endpoint e host RapidAPI sono configurabili perché gli API provider possono
+# cambiare catalogo/endpoint. Non mettere mai la chiave in questo file.
+RAPIDAPI_SHEIN_URL = ""
+RAPIDAPI_HOST = ""
+
+# ID actor e input sono specifici dell'actor Apify scelto.
+APIFY_TEMU_ACTOR_ID = ""
+APIFY_TEMU_INPUT_JSON = "{}"
+APIFY_API_BASE_URL = "https://api.apify.com"
+
+# Secrets da impostare con `wrangler secret put`, non nel file:
+# RAPIDAPI_KEY
+# APIFY_TOKEN

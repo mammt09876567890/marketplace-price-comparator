@@ -78,6 +78,7 @@ h3 { margin-bottom: 10px; font-size: 17px; letter-spacing: -.03em; }
 .tag { display: inline-flex; align-self: flex-start; border-radius: 6px; padding: 5px 8px; font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .tag-live { color: var(--mint-ink); background: var(--mint); } .tag-estimated { color: var(--amber-ink); background: var(--amber); } .tag-unavailable { color: var(--rose-ink); background: var(--rose); }
 .result-link { display: inline-flex; margin-top: auto; color: var(--blue); font-size: 12px; font-weight: 750; text-decoration: none; }
+.card-message { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .results-disclaimer { display: flex; gap: 10px; margin-top: 18px; padding: 15px 18px; border: 1px solid #e8e4d8; border-radius: 12px; background: #fffdf6; color: #736d5e; }
 .results-disclaimer p { margin: 0; font-size: 12px; line-height: 1.5; }
 .info-icon { display: grid; flex: 0 0 auto; place-items: center; width: 18px; height: 18px; border: 1px solid #c8bea4; border-radius: 50%; font-size: 11px; }
